@@ -28,7 +28,7 @@ const itemVariants = {
 export default function FriendsBoard() {
   const [isCopied, setIsCopied] = useState(false);
 
-  const applyFormat = `名称: ${siteConfig.title}
+  const applyFormat = `名称: DAIZAIZHI の 宝藏之地
 简介: ${siteConfig.bio}
 链接: ${siteConfig.siteUrl}
 头像: ${siteConfig.avatarUrl}`;
