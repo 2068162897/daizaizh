@@ -4,6 +4,7 @@ export const siteConfig = {
   // 1. 网站标题与博主信息
   title: "XingHuiSama の 宝藏之地",
   authorName: "DAIZAIZHI",
+  siteUrl: "https://www.caosila.com",
   bio: "在代码、学术与分子动力学模拟间穿梭的普通人。近期正埋头于 GROMACS 模拟研究与神经网络计算。",
 
   // 2. 头像设置 (支持网络链接，或将图片放入 public 文件夹后使用 "/me.jpg")
@@ -21,7 +22,7 @@ export const siteConfig = {
 
   // 5. 首页照片墙预览图
   photoWallImage: "https://bu.dusays.com/2026/03/24/69c1e38b4c370.jpg",
-  cloudMusicIds: ["1809646618", "3361076230", "1859390262"],
+  cloudMusicIds: ["476513774"],
   social: {
     github: "https://github.com/daizaizh",
     gitee: "https://github.com/daizaizh",
