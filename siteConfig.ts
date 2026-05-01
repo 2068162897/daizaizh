@@ -23,12 +23,12 @@ export const siteConfig = {
   photoWallImage: "https://bu.dusays.com/2026/03/24/69c1e38b4c370.jpg",
   cloudMusicIds: ["1809646618", "3361076230", "1859390262"],
   social: {
-    github: "https://github.com/heiehiehi",
-    gitee: "https://github.com/heiehiehi",
-    google: "mailto:bilibiliwuwuwu@gmail.com",
-    email: "1124533793@qq.com",
-    qq: "1124533793",
-    wechat: "XingHuisama",
+    github: "https://github.com/daizaizh",
+    gitee: "https://github.com/daizaizh",
+    google: "m2068162897@gmail.com",
+    email: "2068162897@qq.com",
+    qq: "2068162897",
+    wechat: "daizaizh",
   },
   counts: {
     photos: 128, // 照片墙数量可以手动写死或动态计算
