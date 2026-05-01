@@ -40,10 +40,10 @@ export const siteConfig = {
   // 👇 【新增】：全局背景弹幕配置
   danmakuList: ["在干嘛呢？", "有笨蛋嘛？", "前方高能反应！", "GROMACS 跑起来了吗？", "MD 模拟什么时候才能出图啊", "Graph Neural Networks 炼丹中...", "BUG 修复进度 99%", "今天背单词了吗？", "Tailwind CSS 拯救前端", "写算法中", "睡大觉中", "到底在干嘛？"],
   gitalkConfig: {
-    clientID: "",
-    clientSecret: "",
-    repo: "",
-    owner: "",
+    clientID: "Ov23liP0oiBqUeKT3ohe",
+    clientSecret: "496a7c70927a4f04acff4dd661a62d3b6306ded0",
+    repo: "daizaizh",
+    owner: "2068162897",
     admin: ["2068162897"],
   },
   buildDate: "2026-03-23T00:00:00", // 建站日期
