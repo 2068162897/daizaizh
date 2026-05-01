@@ -13,12 +13,12 @@ export const projectsData: Project[] = [
   {
     "id": "proj_1775049332705",
     "name": "Computational Chemistry Tool",
-    "githubUrl": "https://github.com/heiehiehi/Computational_Chemistry_Tool",
-    "description": "该工具本作者使用在Win下的WSL2平台，系统为Ubuntu22，个人使用请依据自己数据进行修改（这些工具只是整合了一些流程）",
+    "githubUrl": "http://39.106.210.5:8008/server/1",
+    "description": "该工具是监控服务器的",
     "icon": "🚀",
     "tags": [
       "Gromacs",
       "RMSF"
     ]
-  },
+  }
 ];
