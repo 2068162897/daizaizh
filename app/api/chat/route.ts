@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { siteConfig } from "../../../siteConfig";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 type EndpointMode = "sdk" | "responses" | "chat";
 type JsonObject = Record<string, unknown>;
