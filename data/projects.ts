@@ -11,6 +11,16 @@ export type Project = {
 
 export const projectsData: Project[] = [
   {
+    "id": "proj_1777711234460",
+    "name": "new api",
+    "githubUrl": "http://23.139.132.32:3000/",
+    "description": "个人自用的api真开心",
+    "icon": "🚀",
+    "tags": [
+      "docker，"
+    ]
+  },
+  {
     "id": "proj_1775049332705",
     "name": "Computational Chemistry Tool",
     "githubUrl": "http://39.106.210.5:8008/server/1",
