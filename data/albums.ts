@@ -11,6 +11,10 @@ export const albums: Album[] = [
     "date": "2026.01",
     "photos": [
       {
+        "url": "https://i.111666.best/image/5CIR0quf6fce96DkWlWUgr.jpg",
+        "caption": "找到一张好看的图片"
+      },
+      {
         "url": "https://bu.dusays.com/2026/03/31/69cb69bb530d8.jpg",
         "caption": "原来的人"
       },
