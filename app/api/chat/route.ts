@@ -308,12 +308,16 @@ export async function POST(req: Request) {
 
 export async function GET() {
   const rawBaseURL = (process.env.OPENAI_BASE_URL || "").trim();
+  const apiKey = (process.env.OPENAI_API_KEY || "").trim();
+  const model = (process.env.OPENAI_MODEL || siteConfig.geminiConfig?.modelId || "").trim();
   const target = detectEndpointMode(rawBaseURL);
 
   return jsonResponse({
     status: "Ready",
     provider: "OpenAI-compatible",
     endpointMode: target.mode,
+    apiKeyConfigured: Boolean(apiKey),
     baseURLConfigured: Boolean(rawBaseURL),
+    modelConfigured: Boolean(model),
   });
 }
