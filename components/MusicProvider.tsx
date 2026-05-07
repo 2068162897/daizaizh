@@ -151,6 +151,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     }
 
     if (isPlaying && audioRef.current) {
+      audioRef.current.load();
       const playPromise = audioRef.current.play();
       if (playPromise !== undefined) playPromise.catch(() => setIsPlaying(false));
     }
@@ -165,9 +166,17 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   const togglePlay = () => {
     if (audioRef.current) {
-      if (isPlaying) audioRef.current.pause();
-      else audioRef.current.play().catch(() => setIsPlaying(false));
-      setIsPlaying(!isPlaying);
+      audioRef.current.muted = false;
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+        return;
+      }
+
+      audioRef.current.load();
+      audioRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setIsPlaying(false));
     }
   };
 
@@ -244,6 +253,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           ref={audioRef}
           src={currentSong.src}
           crossOrigin="anonymous"
+          preload="auto"
+          muted={false}
+          playsInline
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onError={() => setIsPlaying(false)}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleEnded}
           onLoadedMetadata={handleTimeUpdate}
