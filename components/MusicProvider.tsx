@@ -70,47 +70,51 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
-  const [currentLyric, setCurrentLyric] = useState("正在连接高可用神经云端...");
+  const [currentLyric, setCurrentLyric] = useState("????????...");
   const [isLoading, setIsLoading] = useState(true);
-
-  // 🌟 2. 新增音量和播放模式状态
   const [volume, setVolumeState] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [playMode, setPlayMode] = useState<PlayMode>('loop');
-
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     let isMounted = true;
+
     const fetchMusicData = async () => {
       try {
-        const fetchPromises = siteConfig.cloudMusicIds.map(id =>
-          fetch(`https://api.injahow.cn/meting/?server=netease&type=song&id=${id}`)
-            .then(res => res.json())
+        const fetchPromises = siteConfig.cloudMusicIds.map((id) =>
+          fetch(`/api/music?id=${encodeURIComponent(id)}&type=meta`)
+            .then((res) => res.json())
             .catch(() => null)
         );
-        const results = await Promise.all(fetchPromises);
 
+        const results = await Promise.all(fetchPromises);
         const mergedPlaylist = results
-          .filter(res => res && res.length > 0)
-          .map(res => ({
-            id: res[0].id || Math.random().toString(),
-            title: res[0].name || res[0].title || '未知歌曲',
-            artist: res[0].author || res[0].artist || '未知歌手',
-            cover: res[0].pic || res[0].cover || 'https://bu.dusays.com/2026/03/24/69c24230a5ff8.jpg',
-            src: res[0].url,
-            lrcUrl: res[0].lrc,
-            lyrics: [] // 🌟 初始化时预留一个空数组
-          }))
-          .filter(song => song.src);
+          .filter((res) => res && res.length > 0)
+          .map((res) => {
+            const song = res[0];
+            return {
+              id: song.id || Math.random().toString(),
+              title: song.name || song.title || '????',
+              artist: song.author || song.artist || '????',
+              cover: `/api/music?id=${encodeURIComponent(String(song.id || ''))}&type=pic`,
+              src: `/api/music?id=${encodeURIComponent(String(song.id || ''))}&type=audio`,
+              lrcUrl: `/api/music?id=${encodeURIComponent(String(song.id || ''))}&type=lrc`,
+              lyrics: []
+            };
+          })
+          .filter((song) => song.src);
 
         if (isMounted) {
           if (mergedPlaylist.length > 0) setPlaylist(mergedPlaylist);
-          else setCurrentLyric("云端链路受阻");
+          else setCurrentLyric('??????');
           setIsLoading(false);
         }
-      } catch (error) {
-        if (isMounted) { setCurrentLyric("网络初始化失败"); setIsLoading(false); }
+      } catch {
+        if (isMounted) {
+          setCurrentLyric('???????');
+          setIsLoading(false);
+        }
       }
     };
 
@@ -125,36 +129,34 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     const currentSong = playlist[currentIndex];
     setLyrics([]);
-    setCurrentLyric("♪ 正在缓冲 ♪");
+    setCurrentLyric('????...');
 
     if (currentSong.lrcUrl) {
       fetch(currentSong.lrcUrl)
-        .then(res => res.text())
-        .then(text => {
+        .then((res) => res.text())
+        .then((text) => {
           if (isMounted) {
-             const parsed = parseLrc(text);
-             setLyrics(parsed);
-             // 🌟 3. 将解析好的歌词反向写入到 playlist 的 currentSong 中，供 MusicPage 读取！
-             setPlaylist(prev => {
-                const newPlaylist = [...prev];
-                newPlaylist[currentIndex].lyrics = parsed;
-                return newPlaylist;
-             });
+            const parsed = parseLrc(text);
+            setLyrics(parsed);
+            setPlaylist((prev) => {
+              const newPlaylist = [...prev];
+              newPlaylist[currentIndex].lyrics = parsed;
+              return newPlaylist;
+            });
           }
         })
-        .catch(() => { if (isMounted) setCurrentLyric("♪ 纯享音乐 ♪"); });
+        .catch(() => {
+          if (isMounted) setCurrentLyric('????');
+        });
     }
 
     if (isPlaying && audioRef.current) {
       const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => setIsPlaying(false));
-      }
+      if (playPromise !== undefined) playPromise.catch(() => setIsPlaying(false));
     }
     return () => { isMounted = false; };
-  }, [currentIndex, playlist.length]); // 移除 playlist 依赖防止无限循环，只依赖长度
+  }, [currentIndex, playlist.length]);
 
-  // 🌟 4. 同步音量到 audio 元素
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : volume;
@@ -169,27 +171,19 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 🌟 5. 重写 nextSong，加入对随机模式的处理
   const nextSong = () => {
-    if (playMode === 'random') {
-      setCurrentIndex(Math.floor(Math.random() * playlist.length));
-    } else {
-      setCurrentIndex((prev) => (prev + 1) % playlist.length);
-    }
+    if (playMode === 'random') setCurrentIndex(Math.floor(Math.random() * playlist.length));
+    else setCurrentIndex((prev) => (prev + 1) % playlist.length);
   };
 
   const prevSong = () => {
-    if (playMode === 'random') {
-      setCurrentIndex(Math.floor(Math.random() * playlist.length));
-    } else {
-      setCurrentIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
-    }
+    if (playMode === 'random') setCurrentIndex(Math.floor(Math.random() * playlist.length));
+    else setCurrentIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
   };
 
-  // 🌟 6. 暴露直接播放指定歌曲的方法
   const playSong = (index: number) => {
     setCurrentIndex(index);
-    if (!isPlaying) setIsPlaying(true); // 保证切歌后自动播放
+    if (!isPlaying) setIsPlaying(true);
   };
 
   const handleTimeUpdate = () => {
@@ -208,13 +202,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 🌟 7. 处理歌曲结束
   const handleEnded = () => {
     if (playMode === 'single' && audioRef.current) {
-       audioRef.current.currentTime = 0;
-       audioRef.current.play();
+      audioRef.current.currentTime = 0;
+      audioRef.current.play();
     } else {
-       nextSong();
+      nextSong();
     }
   };
 
@@ -244,26 +237,21 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const currentSong = playlist[currentIndex];
 
   return (
-    <MusicContext.Provider value={{
-        playlist, currentIndex, currentSong, isPlaying, progress, currentTime, duration, currentLyric, isLoading,
-        volume, isMuted, playMode, // 暴露新状态
-        togglePlay, nextSong, prevSong, handleSeek,
-        playSong, setVolume, toggleMute, togglePlayMode // 暴露新方法
-    }}>
+    <MusicContext.Provider value={{ playlist, currentIndex, currentSong, isPlaying, progress, currentTime, duration, currentLyric, isLoading, volume, isMuted, playMode, togglePlay, nextSong, prevSong, handleSeek, playSong, setVolume, toggleMute, togglePlayMode }}>
       {children}
       {currentSong && (
         <audio
           ref={audioRef}
           src={currentSong.src}
+          crossOrigin="anonymous"
           onTimeUpdate={handleTimeUpdate}
-          onEnded={handleEnded} // 使用我们重写的结束处理
+          onEnded={handleEnded}
           onLoadedMetadata={handleTimeUpdate}
         />
       )}
     </MusicContext.Provider>
   );
 }
-
 export const useMusic = () => {
   const context = useContext(MusicContext);
   if (!context) throw new Error("useMusic must be used within MusicProvider");
