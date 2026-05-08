@@ -59,6 +59,17 @@ function parseLrc(lrcText: string): LyricLine[] {
   return result.sort((a, b) => a.time - b.time);
 }
 
+function extractIdFromMetingUrl(url?: string): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const id = parsed.searchParams.get('id');
+    return id && id.trim() ? id.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 export function MusicProvider({ children }: { children: ReactNode }) {
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -91,13 +102,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           .filter((x) => Array.isArray(x.data) && x.data.length > 0)
           .map(({ id, data }) => {
             const song = data[0];
+            const sourceSongId = String(song.id || id);
+            const coverId = extractIdFromMetingUrl(song.pic || song.cover) || sourceSongId;
             return {
-              id: String(song.id || id),
+              id: sourceSongId,
               title: song.name || song.title || '未知歌曲',
               artist: song.author || song.artist || '未知歌手',
-              cover: `/api/music?id=${encodeURIComponent(String(song.id || id))}&type=pic`,
-              src: `/api/music?id=${encodeURIComponent(String(song.id || id))}&type=audio`,
-              lrcUrl: `/api/music?id=${encodeURIComponent(String(song.id || id))}&type=lrc`,
+              cover: `/api/music?id=${encodeURIComponent(coverId)}&type=pic`,
+              src: `/api/music?id=${encodeURIComponent(sourceSongId)}&type=audio`,
+              lrcUrl: `/api/music?id=${encodeURIComponent(sourceSongId)}&type=lrc`,
               lyrics: [],
             } as Song;
           });
