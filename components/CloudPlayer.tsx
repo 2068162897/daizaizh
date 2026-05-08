@@ -1,11 +1,9 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useMusic } from './MusicProvider';
-// 🌟 核心引入：Next.js 路由钩子
-import { useRouter } from 'next/navigation';
 
 const formatTime = (time: number) => {
-  if (!time || isNaN(time)) return "00:00";
+  if (!time || isNaN(time)) return '00:00';
   const m = Math.floor(time / 60).toString().padStart(2, '0');
   const s = Math.floor(time % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
@@ -13,14 +11,12 @@ const formatTime = (time: number) => {
 
 export default function CloudPlayer() {
   const { playlist, currentSong, isPlaying, progress, currentTime, duration, currentLyric, isLoading, togglePlay, nextSong, prevSong, handleSeek } = useMusic();
-  const [displayedLyric, setDisplayedLyric] = useState("");
-  // 🌟 初始化路由
-  const router = useRouter();
+  const [displayedLyric, setDisplayedLyric] = useState('');
 
   useEffect(() => {
     let i = 0;
-    setDisplayedLyric("");
-    const target = currentLyric || "";
+    setDisplayedLyric('');
+    const target = currentLyric || '';
     if (!target) return;
 
     const typingInterval = setInterval(() => {
@@ -51,12 +47,11 @@ export default function CloudPlayer() {
           <svg className="w-8 h-8 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
         </div>
         <span className="text-slate-500 dark:text-slate-400 font-bold tracking-widest text-xs uppercase">No Music Available</span>
-        <span className="text-[10px] text-slate-400 mt-1">请检查播放列表或网络连接</span>
+        <span className="text-[10px] text-slate-400 mt-1">���鲥���б�����������</span>
       </div>
     );
   }
 
-  // 🌟 拦截事件防冒泡的专属函数
   const safeTogglePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -89,21 +84,11 @@ export default function CloudPlayer() {
         .safe-wave { animation: safeWave 1s ease-in-out infinite; transform-origin: bottom; will-change: height; }
       `}</style>
 
-      {/* 🌟 终极逻辑：在外层 Div 直接绑定 onClick 进行页面跳转 */}
-      <div
-        onClick={() => router.push('/music')}
-        className="h-full w-full rounded-3xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-xl p-6 flex flex-col justify-between transition-all duration-700 hover:scale-[1.02] relative group overflow-hidden cursor-pointer"
-      >
+      <div className="h-full w-full rounded-3xl bg-white/40 dark:bg-slate-800/50 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-xl p-6 flex flex-col justify-between transition-all duration-700 hover:scale-[1.02] relative group overflow-hidden cursor-pointer">
         <div className={`absolute -top-20 -right-20 w-48 h-48 bg-indigo-500/20 blur-[50px] rounded-full transition-opacity duration-1000 ${isPlaying ? 'opacity-100' : 'opacity-30'}`}></div>
 
         <div className="flex items-center gap-5 relative z-10 mb-6 mt-2">
-          <div
-            className="w-20 h-20 rounded-full border-2 border-white/50 shadow-lg flex-shrink-0 overflow-hidden relative animate-[spin_6s_linear_infinite]"
-            style={{
-              animationPlayState: isPlaying ? 'running' : 'paused',
-              willChange: 'transform'
-            }}
-          >
+          <div className="w-20 h-20 rounded-full border-2 border-white/50 shadow-lg flex-shrink-0 overflow-hidden relative animate-[spin_6s_linear_infinite]" style={{ animationPlayState: isPlaying ? 'running' : 'paused', willChange: 'transform' }}>
             <img src={currentSong.cover} alt="cover" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             <div className="absolute inset-0 bg-black/10"></div>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 bg-white/80 backdrop-blur-sm rounded-full border border-gray-300 shadow-inner"></div>
@@ -119,40 +104,20 @@ export default function CloudPlayer() {
         </div>
 
         <div className="relative z-10 mb-2 h-6 overflow-hidden">
-           <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">{displayedLyric}</p>
+          <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">{displayedLyric}</p>
         </div>
 
         <div className="relative z-10 mt-auto">
-          {/* 🌟 核心拦截：把进度条的点击也拦住 */}
-          <div
-             className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300 font-bold mb-3 transition-colors duration-700"
-             onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-             onPointerDown={(e) => { e.stopPropagation(); }}
-          >
+          <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300 font-bold mb-3 transition-colors duration-700" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} onPointerDown={(e) => { e.stopPropagation(); }}>
             <span className="w-10 text-right">{formatTime(currentTime)}</span>
-            <input
-              type="range" min="0" max="100"
-              value={progress}
-              onChange={safeHandleSeek}
-              className="flex-1 h-1.5 bg-white/40 dark:bg-slate-700/50 rounded-full appearance-none outline-none cursor-pointer shadow-inner"
-              style={{ background: `linear-gradient(to right, #818cf8 ${progress}%, rgba(148,163,184,0.4) ${progress}%)` }}
-            />
+            <input type="range" min="0" max="100" value={progress} onChange={safeHandleSeek} className="flex-1 h-1.5 bg-white/40 dark:bg-slate-700/50 rounded-full appearance-none outline-none cursor-pointer shadow-inner" style={{ background: `linear-gradient(to right, #818cf8 ${progress}%, rgba(148,163,184,0.4) ${progress}%)` }} />
             <span className="w-10">{formatTime(duration)}</span>
           </div>
 
-          {/* 🌟 核心拦截：使用我们上面写的 safe 函数，阻止事件冒泡 */}
           <div className="flex items-center justify-center gap-6">
-            <button onClick={safePrevSong} className="text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors drop-shadow-sm relative z-20">
-               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-            </button>
-
-            <button onClick={safeTogglePlay} className="w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600 hover:scale-110 transition-all border-2 border-white/50 dark:border-slate-600 relative z-20">
-              {isPlaying ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> : <svg className="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>}
-            </button>
-
-            <button onClick={safeNextSong} className="text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors drop-shadow-sm relative z-20">
-               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-            </button>
+            <button onClick={safePrevSong} className="text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors drop-shadow-sm relative z-20"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+            <button onClick={safeTogglePlay} className="w-12 h-12 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-600 hover:scale-110 transition-all border-2 border-white/50 dark:border-slate-600 relative z-20">{isPlaying ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg> : <svg className="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>}</button>
+            <button onClick={safeNextSong} className="text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors drop-shadow-sm relative z-20"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
           </div>
         </div>
       </div>

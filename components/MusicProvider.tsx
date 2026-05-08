@@ -1,45 +1,24 @@
 "use client";
 
-import { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { siteConfig } from '../siteConfig';
 
-// 【增强版 LRC 歌词解析】
-function parseLrc(lrcText: string) {
-  if (!lrcText || lrcText.length > 30000) return [];
-
-  const lines = lrcText.split(/\r?\n/);
-  const result = [];
-
-  for (let line of lines) {
-    const matches = [...line.matchAll(/\[(\d{2,}):(\d{2})(?:\.(\d{2,3}))?\]/g)];
-    if (matches.length > 0) {
-      let text = line.replace(/\[\d{2,}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
-
-      // 剔除控制字符
-      const cleanText = text.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "");
-
-      if (cleanText) {
-        for (const match of matches) {
-          const min = parseInt(match[1]);
-          const sec = parseInt(match[2]);
-          const ms = match[3] ? parseInt(match[3]) : 0;
-          const divisor = match[3] && match[3].length === 3 ? 1000 : 100;
-          const time = min * 60 + sec + ms / divisor;
-          result.push({ time, text: cleanText });
-        }
-      }
-    }
-  }
-  return result.sort((a, b) => a.time - b.time);
-}
-
-// 🌟 1. 扩充 Context 类型，加入 MusicPage 需要的所有属性
 type PlayMode = 'loop' | 'single' | 'random';
+type LyricLine = { time: number; text: string };
+type Song = {
+  id: string;
+  title: string;
+  artist: string;
+  cover: string;
+  src: string;
+  lrcUrl?: string;
+  lyrics?: LyricLine[];
+};
 
 interface MusicContextType {
-  playlist: any[];
+  playlist: Song[];
   currentIndex: number;
-  currentSong: any; // 扩展了 lyrics 属性
+  currentSong: Song | null;
   isPlaying: boolean;
   progress: number;
   currentTime: number;
@@ -49,7 +28,6 @@ interface MusicContextType {
   volume: number;
   isMuted: boolean;
   playMode: PlayMode;
-
   togglePlay: () => void;
   nextSong: () => void;
   prevSong: () => void;
@@ -62,15 +40,34 @@ interface MusicContextType {
 
 const MusicContext = createContext<MusicContextType | null>(null);
 
+function parseLrc(lrcText: string): LyricLine[] {
+  if (!lrcText || lrcText.length > 30000) return [];
+  const result: LyricLine[] = [];
+  for (const line of lrcText.split(/\r?\n/)) {
+    const matches = [...line.matchAll(/\[(\d{2,}):(\d{2})(?:\.(\d{2,3}))?\]/g)];
+    if (!matches.length) continue;
+    const text = line.replace(/\[\d{2,}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
+    if (!text) continue;
+    for (const match of matches) {
+      const min = Number(match[1]);
+      const sec = Number(match[2]);
+      const ms = match[3] ? Number(match[3]) : 0;
+      const divisor = match[3] && match[3].length === 3 ? 1000 : 100;
+      result.push({ time: min * 60 + sec + ms / divisor, text });
+    }
+  }
+  return result.sort((a, b) => a.time - b.time);
+}
+
 export function MusicProvider({ children }: { children: ReactNode }) {
-  const [playlist, setPlaylist] = useState<any[]>([]);
+  const [playlist, setPlaylist] = useState<Song[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
-  const [currentLyric, setCurrentLyric] = useState("????????...");
+  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
+  const [currentLyric, setCurrentLyric] = useState('正在连接音乐...');
   const [isLoading, setIsLoading] = useState(true);
   const [volume, setVolumeState] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
@@ -78,175 +75,191 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    let alive = true;
 
-    const fetchMusicData = async () => {
+    (async () => {
       try {
-        const fetchPromises = siteConfig.cloudMusicIds.map((id) =>
-          fetch(`/api/music?id=${encodeURIComponent(id)}&type=meta`)
-            .then((res) => res.json())
-            .catch(() => null)
+        const items = await Promise.all(
+          (siteConfig.cloudMusicIds || []).map(async (id) => {
+            const res = await fetch(`/api/music?id=${encodeURIComponent(id)}&type=meta`);
+            const data = await res.json().catch(() => null);
+            return { id, data };
+          })
         );
 
-        const results = await Promise.all(fetchPromises);
-        const mergedPlaylist = results
-          .filter((res) => res && res.length > 0)
-          .map((res) => {
-            const song = res[0];
+        const nextPlaylist = items
+          .filter((x) => Array.isArray(x.data) && x.data.length > 0)
+          .map(({ id, data }) => {
+            const song = data[0];
             return {
-              id: song.id || Math.random().toString(),
-              title: song.name || song.title || '????',
-              artist: song.author || song.artist || '????',
-              cover: `/api/music?id=${encodeURIComponent(String(song.id || ''))}&type=pic`,
-              src: `/api/music?id=${encodeURIComponent(String(song.id || ''))}&type=audio`,
-              lrcUrl: `/api/music?id=${encodeURIComponent(String(song.id || ''))}&type=lrc`,
-              lyrics: []
-            };
-          })
-          .filter((song) => song.src);
+              id: String(song.id || id),
+              title: song.name || song.title || '未知歌曲',
+              artist: song.author || song.artist || '未知歌手',
+              cover: `/api/music?id=${encodeURIComponent(String(song.id || id))}&type=pic`,
+              src: `/api/music?id=${encodeURIComponent(String(song.id || id))}&type=audio`,
+              lrcUrl: `/api/music?id=${encodeURIComponent(String(song.id || id))}&type=lrc`,
+              lyrics: [],
+            } as Song;
+          });
 
-        if (isMounted) {
-          if (mergedPlaylist.length > 0) setPlaylist(mergedPlaylist);
-          else setCurrentLyric('??????');
-          setIsLoading(false);
-        }
+        if (!alive) return;
+        setPlaylist(nextPlaylist);
+        setIsLoading(false);
       } catch {
-        if (isMounted) {
-          setCurrentLyric('???????');
-          setIsLoading(false);
-        }
+        if (!alive) return;
+        setPlaylist([]);
+        setCurrentLyric('音乐加载失败');
+        setIsLoading(false);
       }
+    })();
+
+    return () => {
+      alive = false;
     };
-
-    if (siteConfig.cloudMusicIds?.length > 0) fetchMusicData();
-    else setIsLoading(false);
-
-    return () => { isMounted = false; };
   }, []);
 
   useEffect(() => {
-    if (playlist.length === 0) return;
-    let isMounted = true;
-    const currentSong = playlist[currentIndex];
-    setLyrics([]);
-    setCurrentLyric('????...');
+    const song = playlist[currentIndex];
+    if (!song) return;
 
-    if (currentSong.lrcUrl) {
-      fetch(currentSong.lrcUrl)
+    let alive = true;
+    setLyrics([]);
+    setCurrentLyric('正在缓冲...');
+
+    if (song.lrcUrl) {
+      fetch(song.lrcUrl)
         .then((res) => res.text())
         .then((text) => {
-          if (isMounted) {
-            const parsed = parseLrc(text);
-            setLyrics(parsed);
-            setPlaylist((prev) => {
-              const newPlaylist = [...prev];
-              newPlaylist[currentIndex].lyrics = parsed;
-              return newPlaylist;
-            });
-          }
+          if (!alive) return;
+          const parsed = parseLrc(text);
+          setLyrics(parsed);
+          setPlaylist((prev) => prev.map((item, idx) => (idx === currentIndex ? { ...item, lyrics: parsed } : item)));
         })
         .catch(() => {
-          if (isMounted) setCurrentLyric('????');
+          if (alive) setCurrentLyric('纯享音乐');
         });
     }
 
-    if (isPlaying && audioRef.current) {
-      audioRef.current.load();
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) playPromise.catch(() => setIsPlaying(false));
+    const audio = audioRef.current;
+    if (audio && isPlaying) {
+      audio.load();
+      audio.play().catch(() => setIsPlaying(false));
     }
-    return () => { isMounted = false; };
+
+    return () => {
+      alive = false;
+    };
   }, [currentIndex, playlist.length]);
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = isMuted ? 0 : volume;
-    }
+    if (!audioRef.current) return;
+    audioRef.current.volume = isMuted ? 0 : volume;
+    audioRef.current.muted = isMuted;
   }, [volume, isMuted]);
 
   const togglePlay = () => {
-    if (audioRef.current) {
-      audioRef.current.muted = false;
-      if (isPlaying) {
-        audioRef.current.pause();
-        setIsPlaying(false);
-        return;
-      }
-
-      audioRef.current.load();
-      audioRef.current.play()
-        .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(false));
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.muted = false;
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
     }
+    audio.load();
+    audio.play()
+      .then(() => setIsPlaying(true))
+      .catch(() => setIsPlaying(false));
   };
 
   const nextSong = () => {
+    if (!playlist.length) return;
     if (playMode === 'random') setCurrentIndex(Math.floor(Math.random() * playlist.length));
     else setCurrentIndex((prev) => (prev + 1) % playlist.length);
   };
 
   const prevSong = () => {
+    if (!playlist.length) return;
     if (playMode === 'random') setCurrentIndex(Math.floor(Math.random() * playlist.length));
     else setCurrentIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
   };
 
   const playSong = (index: number) => {
     setCurrentIndex(index);
-    if (!isPlaying) setIsPlaying(true);
+    setIsPlaying(true);
   };
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      const { currentTime, duration } = audioRef.current;
-      setCurrentTime(currentTime);
-      setDuration(duration || 0);
-      setProgress((currentTime / (duration || 1)) * 100);
+    const audio = audioRef.current;
+    if (!audio) return;
 
-      if (lyrics.length > 0) {
-        const activeLyric = lyrics.slice().reverse().find(l => currentTime >= l.time);
-        if (activeLyric && activeLyric.text !== currentLyric) {
-          setCurrentLyric(activeLyric.text);
-        }
-      }
+    const { currentTime, duration } = audio;
+    setCurrentTime(currentTime);
+    setDuration(duration || 0);
+    setProgress((currentTime / (duration || 1)) * 100);
+
+    if (lyrics.length > 0) {
+      const active = [...lyrics].reverse().find((l) => currentTime >= l.time);
+      if (active) setCurrentLyric(active.text);
     }
   };
 
   const handleEnded = () => {
-    if (playMode === 'single' && audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play();
-    } else {
-      nextSong();
+    if (playMode === 'single') {
+      const audio = audioRef.current;
+      if (!audio) return;
+      audio.currentTime = 0;
+      audio.play().catch(() => setIsPlaying(false));
+      return;
     }
+    nextSong();
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newProgress = Number(e.target.value);
-    setProgress(newProgress);
-    if (audioRef.current && audioRef.current.duration) {
-      audioRef.current.currentTime = (newProgress / 100) * audioRef.current.duration;
+    const value = Number(e.target.value);
+    setProgress(value);
+    const audio = audioRef.current;
+    if (audio && audio.duration) {
+      audio.currentTime = (value / 100) * audio.duration;
     }
   };
 
-  const setVolume = (val: number) => {
-    setVolumeState(val);
-    if (isMuted && val > 0) setIsMuted(false);
+  const setVolume = (value: number) => {
+    setVolumeState(value);
+    if (isMuted && value > 0) setIsMuted(false);
   };
 
-  const toggleMute = () => setIsMuted(!isMuted);
+  const toggleMute = () => setIsMuted((v) => !v);
 
   const togglePlayMode = () => {
-    setPlayMode(prev => {
-      if (prev === 'loop') return 'single';
-      if (prev === 'single') return 'random';
-      return 'loop';
-    });
+    setPlayMode((prev) => (prev === 'loop' ? 'single' : prev === 'single' ? 'random' : 'loop'));
   };
 
-  const currentSong = playlist[currentIndex];
+  const currentSong = playlist[currentIndex] || null;
 
   return (
-    <MusicContext.Provider value={{ playlist, currentIndex, currentSong, isPlaying, progress, currentTime, duration, currentLyric, isLoading, volume, isMuted, playMode, togglePlay, nextSong, prevSong, handleSeek, playSong, setVolume, toggleMute, togglePlayMode }}>
+    <MusicContext.Provider value={{
+      playlist,
+      currentIndex,
+      currentSong,
+      isPlaying,
+      progress,
+      currentTime,
+      duration,
+      currentLyric,
+      isLoading,
+      volume,
+      isMuted,
+      playMode,
+      togglePlay,
+      nextSong,
+      prevSong,
+      handleSeek,
+      playSong,
+      setVolume,
+      toggleMute,
+      togglePlayMode,
+    }}>
       {children}
       {currentSong && (
         <audio
@@ -254,7 +267,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           src={currentSong.src}
           crossOrigin="anonymous"
           preload="auto"
-          muted={false}
           playsInline
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
@@ -267,8 +279,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     </MusicContext.Provider>
   );
 }
+
 export const useMusic = () => {
   const context = useContext(MusicContext);
-  if (!context) throw new Error("useMusic must be used within MusicProvider");
+  if (!context) throw new Error('useMusic must be used within MusicProvider');
   return context;
 };
