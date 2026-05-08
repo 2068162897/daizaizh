@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import { siteConfig } from '../siteConfig';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
+import { siteConfig } from "../siteConfig";
 
-type PlayMode = 'loop' | 'single' | 'random';
+type PlayMode = "loop" | "single" | "random";
 type LyricLine = { time: number; text: string };
 type Song = {
   id: string;
@@ -39,6 +39,19 @@ interface MusicContextType {
 }
 
 const MusicContext = createContext<MusicContextType | null>(null);
+const METING_DIRECT_API = "https://api.injahow.cn/meting/";
+
+type RawSongMeta = {
+  id?: string | number;
+  name?: string;
+  title?: string;
+  artist?: string;
+  author?: string;
+  url?: string;
+  pic?: string;
+  cover?: string;
+  lrc?: string;
+};
 
 function parseLrc(lrcText: string): LyricLine[] {
   if (!lrcText || lrcText.length > 30000) return [];
@@ -46,7 +59,7 @@ function parseLrc(lrcText: string): LyricLine[] {
   for (const line of lrcText.split(/\r?\n/)) {
     const matches = [...line.matchAll(/\[(\d{2,}):(\d{2})(?:\.(\d{2,3}))?\]/g)];
     if (!matches.length) continue;
-    const text = line.replace(/\[\d{2,}:\d{2}(?:\.\d{2,3})?\]/g, '').trim();
+    const text = line.replace(/\[\d{2,}:\d{2}(?:\.\d{2,3})?\]/g, "").trim();
     if (!text) continue;
     for (const match of matches) {
       const min = Number(match[1]);
@@ -63,11 +76,39 @@ function extractIdFromMetingUrl(url?: string): string | null {
   if (!url) return null;
   try {
     const parsed = new URL(url);
-    const id = parsed.searchParams.get('id');
+    const id = parsed.searchParams.get("id");
     return id && id.trim() ? id.trim() : null;
   } catch {
     return null;
   }
+}
+
+async function fetchSongMetaWithFallback(id: string): Promise<{ data: RawSongMeta[]; useProxy: boolean }> {
+  const safeId = encodeURIComponent(id);
+  const proxyUrl = `/api/music?id=${safeId}&type=meta`;
+  const directUrl = `${METING_DIRECT_API}?server=netease&type=song&id=${safeId}`;
+
+  try {
+    const proxyRes = await fetch(proxyUrl);
+    if (proxyRes.ok) {
+      const proxyData = (await proxyRes.json().catch(() => null)) as RawSongMeta[] | null;
+      if (Array.isArray(proxyData) && proxyData.length > 0) {
+        return { data: proxyData, useProxy: true };
+      }
+    }
+  } catch {
+    // fallback to direct API
+  }
+
+  const directRes = await fetch(directUrl);
+  if (!directRes.ok) {
+    throw new Error(`Music meta fetch failed: ${id}`);
+  }
+  const directData = (await directRes.json().catch(() => null)) as RawSongMeta[] | null;
+  if (!Array.isArray(directData) || directData.length === 0) {
+    throw new Error(`Music meta empty: ${id}`);
+  }
+  return { data: directData, useProxy: false };
 }
 
 export function MusicProvider({ children }: { children: ReactNode }) {
@@ -78,11 +119,11 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
-  const [currentLyric, setCurrentLyric] = useState('正在连接音乐...');
+  const [currentLyric, setCurrentLyric] = useState("正在连接音乐...");
   const [isLoading, setIsLoading] = useState(true);
   const [volume, setVolumeState] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [playMode, setPlayMode] = useState<PlayMode>('loop');
+  const [playMode, setPlayMode] = useState<PlayMode>("loop");
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -92,25 +133,28 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       try {
         const items = await Promise.all(
           (siteConfig.cloudMusicIds || []).map(async (id) => {
-            const res = await fetch(`/api/music?id=${encodeURIComponent(id)}&type=meta`);
-            const data = await res.json().catch(() => null);
-            return { id, data };
+            const meta = await fetchSongMetaWithFallback(id);
+            return { id, ...meta };
           })
         );
 
         const nextPlaylist = items
           .filter((x) => Array.isArray(x.data) && x.data.length > 0)
-          .map(({ id, data }) => {
+          .map(({ id, data, useProxy }) => {
             const song = data[0];
             const sourceSongId = String(song.id || id);
             const coverId = extractIdFromMetingUrl(song.pic || song.cover) || sourceSongId;
+            const directAudio = song.url || `${METING_DIRECT_API}?server=netease&type=url&id=${encodeURIComponent(sourceSongId)}`;
+            const directCover = song.pic || song.cover || `${METING_DIRECT_API}?server=netease&type=pic&id=${encodeURIComponent(coverId)}`;
+            const directLrc = song.lrc || `${METING_DIRECT_API}?server=netease&type=lrc&id=${encodeURIComponent(sourceSongId)}`;
+
             return {
               id: sourceSongId,
-              title: song.name || song.title || '未知歌曲',
-              artist: song.author || song.artist || '未知歌手',
-              cover: `/api/music?id=${encodeURIComponent(coverId)}&type=pic`,
-              src: `/api/music?id=${encodeURIComponent(sourceSongId)}&type=audio`,
-              lrcUrl: `/api/music?id=${encodeURIComponent(sourceSongId)}&type=lrc`,
+              title: song.name || song.title || "未知歌曲",
+              artist: song.author || song.artist || "未知歌手",
+              cover: useProxy ? `/api/music?id=${encodeURIComponent(coverId)}&type=pic` : directCover,
+              src: useProxy ? `/api/music?id=${encodeURIComponent(sourceSongId)}&type=audio` : directAudio,
+              lrcUrl: useProxy ? `/api/music?id=${encodeURIComponent(sourceSongId)}&type=lrc` : directLrc,
               lyrics: [],
             } as Song;
           });
@@ -121,7 +165,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       } catch {
         if (!alive) return;
         setPlaylist([]);
-        setCurrentLyric('音乐加载失败');
+        setCurrentLyric("音乐加载失败");
         setIsLoading(false);
       }
     })();
@@ -136,8 +180,11 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     if (!song) return;
 
     let alive = true;
-    setLyrics([]);
-    setCurrentLyric('正在缓冲...');
+    queueMicrotask(() => {
+      if (!alive) return;
+      setLyrics([]);
+      setCurrentLyric("正在缓冲...");
+    });
 
     if (song.lrcUrl) {
       fetch(song.lrcUrl)
@@ -149,7 +196,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           setPlaylist((prev) => prev.map((item, idx) => (idx === currentIndex ? { ...item, lyrics: parsed } : item)));
         })
         .catch(() => {
-          if (alive) setCurrentLyric('纯享音乐');
+          if (alive) setCurrentLyric("纯享音乐");
         });
     }
 
@@ -180,20 +227,21 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       return;
     }
     audio.load();
-    audio.play()
+    audio
+      .play()
       .then(() => setIsPlaying(true))
       .catch(() => setIsPlaying(false));
   };
 
   const nextSong = () => {
     if (!playlist.length) return;
-    if (playMode === 'random') setCurrentIndex(Math.floor(Math.random() * playlist.length));
+    if (playMode === "random") setCurrentIndex(Math.floor(Math.random() * playlist.length));
     else setCurrentIndex((prev) => (prev + 1) % playlist.length);
   };
 
   const prevSong = () => {
     if (!playlist.length) return;
-    if (playMode === 'random') setCurrentIndex(Math.floor(Math.random() * playlist.length));
+    if (playMode === "random") setCurrentIndex(Math.floor(Math.random() * playlist.length));
     else setCurrentIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
   };
 
@@ -218,7 +266,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   };
 
   const handleEnded = () => {
-    if (playMode === 'single') {
+    if (playMode === "single") {
       const audio = audioRef.current;
       if (!audio) return;
       audio.currentTime = 0;
@@ -245,34 +293,36 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const toggleMute = () => setIsMuted((v) => !v);
 
   const togglePlayMode = () => {
-    setPlayMode((prev) => (prev === 'loop' ? 'single' : prev === 'single' ? 'random' : 'loop'));
+    setPlayMode((prev) => (prev === "loop" ? "single" : prev === "single" ? "random" : "loop"));
   };
 
   const currentSong = playlist[currentIndex] || null;
 
   return (
-    <MusicContext.Provider value={{
-      playlist,
-      currentIndex,
-      currentSong,
-      isPlaying,
-      progress,
-      currentTime,
-      duration,
-      currentLyric,
-      isLoading,
-      volume,
-      isMuted,
-      playMode,
-      togglePlay,
-      nextSong,
-      prevSong,
-      handleSeek,
-      playSong,
-      setVolume,
-      toggleMute,
-      togglePlayMode,
-    }}>
+    <MusicContext.Provider
+      value={{
+        playlist,
+        currentIndex,
+        currentSong,
+        isPlaying,
+        progress,
+        currentTime,
+        duration,
+        currentLyric,
+        isLoading,
+        volume,
+        isMuted,
+        playMode,
+        togglePlay,
+        nextSong,
+        prevSong,
+        handleSeek,
+        playSong,
+        setVolume,
+        toggleMute,
+        togglePlayMode,
+      }}
+    >
       {children}
       {currentSong && (
         <audio
@@ -295,6 +345,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
 export const useMusic = () => {
   const context = useContext(MusicContext);
-  if (!context) throw new Error('useMusic must be used within MusicProvider');
+  if (!context) throw new Error("useMusic must be used within MusicProvider");
   return context;
 };
